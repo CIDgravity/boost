@@ -7,6 +7,7 @@ import (
 	"github.com/filecoin-project/boost/storagemarket/dealfilter"
 	"github.com/filecoin-project/boost/storagemarket/funds"
 	"github.com/filecoin-project/boost/storagemarket/sealingpipeline"
+	"github.com/filecoin-project/boost/storagemarket/stagingdeals"
 	"github.com/filecoin-project/boost/storagemarket/storagespace"
 	"github.com/filecoin-project/boost/storagemarket/types"
 )
@@ -36,6 +37,7 @@ func (p *Provider) getDealFilterParams(deal *types.ProviderDealState) (*dealfilt
 			SealingPipelineState: sealingpipeline.Status{},
 			FundsState:           funds.Status{},
 			StorageState:         storagespace.Status{},
+			StagingState:         stagingdeals.Status{},
 		}, nil
 	}
 
@@ -45,6 +47,16 @@ func (p *Provider) getDealFilterParams(deal *types.ProviderDealState) (*dealfilt
 		return nil, &acceptError{
 			error:         fmt.Errorf("storage deal filter: failed to fetch funds status: %w", err),
 			reason:        "server error: storage deal filter: getting funds status",
+			isSevereError: true,
+		}
+	}
+
+	// Get the deals before PC1 (staging status)
+	stagingStatus, err := stagingdeals.GetStatus(p.ctx, p.dealsDB)
+	if err != nil {
+		return nil, &acceptError{
+			error:         fmt.Errorf("storage deal filter: failed to fetch staging status: %w", err),
+			reason:        "server error: storage deal filter: getting staging status",
 			isSevereError: true,
 		}
 	}
@@ -74,6 +86,7 @@ func (p *Provider) getDealFilterParams(deal *types.ProviderDealState) (*dealfilt
 		SealingPipelineState: sealingStatus,
 		FundsState:           *fundsStatus,
 		StorageState:         *storageStatus,
+		StagingState:         *stagingStatus,
 	}, nil
 }
 

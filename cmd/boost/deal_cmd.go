@@ -333,6 +333,7 @@ func dealCmdAction(cctx *cli.Context, isOnline bool) error {
 
 func dealProposal(ctx context.Context, n *clinode.Node, clientAddr address.Address, rootCid cid.Cid, pieceSize abi.PaddedPieceSize, pieceCid cid.Cid, minerAddr address.Address, startEpoch abi.ChainEpoch, duration int, verified bool, providerCollateral abi.TokenAmount, storagePrice abi.TokenAmount) (*market.ClientDealProposal, error) {
 	endEpoch := startEpoch + abi.ChainEpoch(duration)
+
 	// deal proposal expects total storage price for deal per epoch, therefore we
 	// multiply pieceSize * storagePrice (which is set per epoch per GiB) and divide by 2^30
 	storagePricePerEpochForDeal := big.Div(big.Mul(big.NewInt(int64(pieceSize)), storagePrice), big.NewInt(int64(1<<30)))

@@ -225,6 +225,14 @@ func (d *DealsDB) ByPublishCID(ctx context.Context, publishCid string) ([]*types
 	return deals, nil
 }
 
+func (d *DealsDB) ByErrorNullAndCheckpoint(ctx context.Context, checkpoint string) ([]*types.ProviderDealState, error) {
+	return d.list(ctx, 0, 0, "Error = ? AND Checkpoint = ?", "", checkpoint)
+}
+
+func (d *DealsDB) ByErrorNotNullAndCheckpoint(ctx context.Context, checkpoint string) ([]*types.ProviderDealState, error) {
+	return d.list(ctx, 0, 0, "Error != ? AND Checkpoint = ?", "", checkpoint)
+}
+
 func (d *DealsDB) ByPieceCID(ctx context.Context, pieceCid cid.Cid) ([]*types.ProviderDealState, error) {
 	return d.list(ctx, 0, 0, "PieceCID=?", pieceCid.String())
 }

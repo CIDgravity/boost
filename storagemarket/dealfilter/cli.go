@@ -9,12 +9,13 @@ import (
 	"github.com/filecoin-project/boost-gfm/retrievalmarket"
 	"github.com/filecoin-project/boost/storagemarket/funds"
 	"github.com/filecoin-project/boost/storagemarket/sealingpipeline"
+	"github.com/filecoin-project/boost/storagemarket/stagingdeals"
 	"github.com/filecoin-project/boost/storagemarket/storagespace"
 	"github.com/filecoin-project/boost/storagemarket/types"
 )
 
 const agent = "boost"
-const jsonVersion = "2.2.0"
+const jsonVersion = "2.2.1"
 
 type StorageDealFilter func(ctx context.Context, deal DealFilterParams) (bool, string, error)
 type RetrievalDealFilter func(ctx context.Context, deal retrievalmarket.ProviderDealState) (bool, string, error)
@@ -26,6 +27,7 @@ func CliStorageDealFilter(cmd string) StorageDealFilter {
 			SealingPipelineState sealingpipeline.Status
 			FundsState           funds.Status
 			StorageState         storagespace.Status
+			StagingState         stagingdeals.Status
 			DealType             string
 			FormatVersion        string
 			Agent                string
@@ -34,6 +36,7 @@ func CliStorageDealFilter(cmd string) StorageDealFilter {
 			SealingPipelineState: deal.SealingPipelineState,
 			FundsState:           deal.FundsState,
 			StorageState:         deal.StorageState,
+			StagingState:         deal.StagingState,
 			DealType:             "storage",
 			FormatVersion:        jsonVersion,
 			Agent:                agent,

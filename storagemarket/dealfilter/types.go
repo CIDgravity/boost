@@ -3,6 +3,7 @@ package dealfilter
 import (
 	"github.com/filecoin-project/boost/storagemarket/funds"
 	"github.com/filecoin-project/boost/storagemarket/sealingpipeline"
+	"github.com/filecoin-project/boost/storagemarket/stagingdeals"
 	"github.com/filecoin-project/boost/storagemarket/storagespace"
 	"github.com/filecoin-project/boost/storagemarket/types"
 )
@@ -13,4 +14,5 @@ type DealFilterParams struct {
 	SealingPipelineState sealingpipeline.Status
 	FundsState           funds.Status
 	StorageState         storagespace.Status
+	StagingState         stagingdeals.Status
 }
