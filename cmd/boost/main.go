@@ -13,7 +13,6 @@ import (
 	"github.com/filecoin-project/boost/build"
 	"github.com/filecoin-project/boostd-data/shared/cliutil"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/urfave/cli/v2"
 )
 
 var log = logging.Logger("boost")
@@ -36,6 +35,7 @@ func main() {
 		Commands: []*cli.Command{
 			initCmd,
 			dealCmd,
+			dealCidGravityCmd,
 			dealStatusCmd,
 			retrieveCmd,
 			offlineDealCmd,
