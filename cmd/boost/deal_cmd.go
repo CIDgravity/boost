@@ -261,7 +261,7 @@ func dealCmdAction(cctx *cli.Context, isOnline bool) error {
 	}
 
 	// Create a deal proposal to storage provider using deal protocol v1.2.0 format
-	dealProposal, err := dealProposal(ctx, n, walletAddr, rootCid, abi.PaddedPieceSize(pieceSize), pieceCid, maddr, startEpoch, cctx.Int("duration"), cctx.Bool("verified"), providerCollateral, abi.NewTokenAmount(cctx.Int64("storage-price")))
+	dealProposal, err := dealProposal(ctx, "", n, walletAddr, rootCid, abi.PaddedPieceSize(pieceSize), pieceCid, maddr, startEpoch, cctx.Int("duration"), cctx.Bool("verified"), providerCollateral, abi.NewTokenAmount(cctx.Int64("storage-price")))
 	if err != nil {
 		return fmt.Errorf("failed to create a deal proposal: %w", err)
 	}
@@ -331,22 +331,41 @@ func dealCmdAction(cctx *cli.Context, isOnline bool) error {
 	return nil
 }
 
-func dealProposal(ctx context.Context, n *clinode.Node, clientAddr address.Address, rootCid cid.Cid, pieceSize abi.PaddedPieceSize, pieceCid cid.Cid, minerAddr address.Address, startEpoch abi.ChainEpoch, duration int, verified bool, providerCollateral abi.TokenAmount, storagePrice abi.TokenAmount) (*market.ClientDealProposal, error) {
+func dealProposal(ctx context.Context, label string, n *clinode.Node, clientAddr address.Address, rootCid cid.Cid, pieceSize abi.PaddedPieceSize, pieceCid cid.Cid, minerAddr address.Address, startEpoch abi.ChainEpoch, duration int, verified bool, providerCollateral abi.TokenAmount, storagePrice abi.TokenAmount) (*market.ClientDealProposal, error) {
 	endEpoch := startEpoch + abi.ChainEpoch(duration)
 	// deal proposal expects total storage price for deal per epoch, therefore we
 	// multiply pieceSize * storagePrice (which is set per epoch per GiB) and divide by 2^30
 	storagePricePerEpochForDeal := big.Div(big.Mul(big.NewInt(int64(pieceSize)), storagePrice), big.NewInt(int64(1<<30)))
-	l, err := market.NewLabelFromString(rootCid.String())
-	if err != nil {
-		return nil, err
+	// If param --label is empty, use root CID
+	// If not, put the value in Label field (format use for CIDgravity keep-alive service)
+	var labelForProposal market.DealLabel
+
+	if label != "" {
+		customLabel, err := market.NewLabelFromString(label)
+
+		if err != nil {
+			return nil, err
+		}
+
+		labelForProposal = customLabel
+
+	} else {
+		l, err := market.NewLabelFromString(rootCid.String())
+
+		if err != nil {
+			return nil, err
+		}
+
+		labelForProposal = l
 	}
+
 	proposal := market.DealProposal{
 		PieceCID:             pieceCid,
 		PieceSize:            pieceSize,
 		VerifiedDeal:         verified,
 		Client:               clientAddr,
 		Provider:             minerAddr,
-		Label:                l,
+		Label:                labelForProposal,
 		StartEpoch:           startEpoch,
 		EndEpoch:             endEpoch,
 		StoragePricePerEpoch: storagePricePerEpochForDeal,
