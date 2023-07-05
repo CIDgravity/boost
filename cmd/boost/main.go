@@ -36,6 +36,7 @@ func main() {
 		Commands: []*cli.Command{
 			initCmd,
 			dealCmd,
+			dealCidGravityCmd,
 			dealStatusCmd,
 			retrieveCmd,
 			offlineDealCmd,
