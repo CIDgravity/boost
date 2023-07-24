@@ -225,12 +225,12 @@ func (d *DealsDB) ByPublishCID(ctx context.Context, publishCid string) ([]*types
 	return deals, nil
 }
 
-func (d *DealsDB) ByErrorNullAndCheckpoint(ctx context.Context, checkpoint string) ([]*types.ProviderDealState, error) {
-	return d.list(ctx, 0, 0, "Error = ? AND Checkpoint = ?", "", checkpoint)
+func (d *DealsDB) ByCheckpoint(ctx context.Context, checkpoint string) ([]*types.ProviderDealState, error) {
+	return d.list(ctx, 0, 0, "Checkpoint = ?", checkpoint)
 }
 
-func (d *DealsDB) ByErrorNotNullAndCheckpoint(ctx context.Context, checkpoint string) ([]*types.ProviderDealState, error) {
-	return d.list(ctx, 0, 0, "Error != ? AND Checkpoint = ?", "", checkpoint)
+func (d *DealsDB) ByCheckpointAndTransferTypeOnlineDeals(ctx context.Context, checkpoint string, transferType string) ([]*types.ProviderDealState, error) {
+	return d.list(ctx, 0, 0, "Checkpoint = ? AND TransferType = ? AND IsOffline = false", checkpoint, transferType)
 }
 
 func (d *DealsDB) ByPieceCID(ctx context.Context, pieceCid cid.Cid) ([]*types.ProviderDealState, error) {

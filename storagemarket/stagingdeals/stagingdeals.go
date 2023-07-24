@@ -4,76 +4,79 @@ import (
 	"context"
 
 	"github.com/filecoin-project/boost/db"
-	abi "github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/boost/storagemarket/types"
+	"github.com/filecoin-project/boost/storagemarket/types/dealcheckpoints"
+	abi "github.com/filecoin-project/go-state-types/abi"
 )
 
-type CheckpointStatus struct {
-	Checkpoint string
-	Count CheckpointCounters
-	CumulativePieceSize  CheckpointPieceSize
-}
-
-type CheckpointCounters struct {
-	Total int64
-	InError int64
-}
-
-type CheckpointPieceSize struct {
-	Total abi.PaddedPieceSize
-	InError abi.PaddedPieceSize 
+type CheckpointState struct {
+	Deals          int64               `json:"Deals"`
+	CumulativeSize abi.PaddedPieceSize `json:"CumulativeSize"`
 }
 
 type Status struct {
-	CheckpointsStatus []*CheckpointStatus
+	Accepted    map[string]CheckpointState `json:"Accepted"` // string will represent a TransferType value
+	Transferred CheckpointState            `json:"Transferred"`
+	Published   CheckpointState            `json:"Published"`
 }
 
+// GetStatus compute the staging deals status
+// Accepted: get number of deals and cumulative size for each transfer types (online only)
+// Transferred and Published : get only total number of deals and cumulative size (for both online and offline)
 func GetStatus(ctx context.Context, dealsDB *db.DealsDB) (*Status, error) {
-	checkpoints := [5]string{"Accepted", "Transferred", "Published", "PublishConfirmed", "AddedPiece"}
+	var checkpointsStatus *Status
 
-	var checkpointsStatus []*CheckpointStatus
+	// For "Accepted" checkpoint
+	acceptedCheckpointState := make(map[string]CheckpointState)
 
-	for _, checkpoint := range checkpoints {
-
-		// Gets deals without err for current checkpoint
-		dealsWithoutErr, err := dealsDB.ByErrorNullAndCheckpoint(ctx, checkpoint)
-
-		if err != nil {
-			return nil, err
-		}
-
-		// Gets deals with err for current checkpoint
-		dealsWithErr, err := dealsDB.ByErrorNotNullAndCheckpoint(ctx, checkpoint)
+	for _, transferType := range [3]string{"http", "libp2p", "graphsync"} {
+		dealList, err := dealsDB.ByCheckpointAndTransferTypeOnlineDeals(ctx, dealcheckpoints.Accepted.String(), transferType)
 
 		if err != nil {
 			return nil, err
 		}
 
-		checkpointsStatus = append(checkpointsStatus, 
-			&CheckpointStatus{ 
-				Checkpoint: checkpoint,  
-				Count: CheckpointCounters {
-					Total: int64(len(dealsWithoutErr)) + int64(len(dealsWithErr)),
-					InError: int64(len(dealsWithErr)),
-				},
-				CumulativePieceSize: CheckpointPieceSize {
-					Total: GetCumulativePieceSize(dealsWithErr) + GetCumulativePieceSize(dealsWithoutErr),
-					InError: GetCumulativePieceSize(dealsWithErr),
-				},
-			},
-		)
+		acceptedCheckpointState[transferType] = CheckpointState{
+			Deals:          int64(len(dealList)),
+			CumulativeSize: GetCumulativePieceSize(dealList),
+		}
 	}
 
-	return &Status{
-		CheckpointsStatus: checkpointsStatus,
-	}, nil
+	checkpointsStatus.Accepted = acceptedCheckpointState
+
+	// For "Transferred" checkpoint
+	dealList, err := dealsDB.ByCheckpoint(ctx, dealcheckpoints.Transferred.String())
+
+	if err != nil {
+		return nil, err
+	}
+
+	checkpointsStatus.Transferred = CheckpointState{
+		Deals:          int64(len(dealList)),
+		CumulativeSize: GetCumulativePieceSize(dealList),
+	}
+
+	// For "Published" checkpoint
+	dealList, err = dealsDB.ByCheckpoint(ctx, dealcheckpoints.Published.String())
+
+	if err != nil {
+		return nil, err
+	}
+
+	checkpointsStatus.Published = CheckpointState{
+		Deals:          int64(len(dealList)),
+		CumulativeSize: GetCumulativePieceSize(dealList),
+	}
+
+	return checkpointsStatus, nil
 }
 
+// GetCumulativePieceSize Sum the PieceSize for each deal in a provided list
 func GetCumulativePieceSize(deals []*types.ProviderDealState) abi.PaddedPieceSize {
 	var cumulativePieceSize abi.PaddedPieceSize
 
 	for _, deal := range deals {
-		if (deal != nil) {
+		if deal != nil {
 			cumulativePieceSize += deal.ClientDealProposal.Proposal.PieceSize
 		}
 	}
