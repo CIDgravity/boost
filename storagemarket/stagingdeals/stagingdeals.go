@@ -24,9 +24,6 @@ type Status struct {
 // Accepted: get number of deals and cumulative size for each transfer types (online only)
 // Transferred and Published : get only total number of deals and cumulative size (for both online and offline)
 func GetStatus(ctx context.Context, dealsDB *db.DealsDB) (*Status, error) {
-	var checkpointsStatus *Status
-
-	// For "Accepted" checkpoint
 	acceptedCheckpointState := make(map[string]CheckpointState)
 
 	for _, transferType := range [3]string{"http", "libp2p", "graphsync"} {
@@ -38,41 +35,39 @@ func GetStatus(ctx context.Context, dealsDB *db.DealsDB) (*Status, error) {
 
 		acceptedCheckpointState[transferType] = CheckpointState{
 			Deals:          int64(len(dealList)),
-			CumulativeSize: GetCumulativePieceSize(dealList),
+			CumulativeSize: GetCumulativeSizeFromDealList(dealList),
 		}
 	}
 
-	checkpointsStatus.Accepted = acceptedCheckpointState
-
 	// For "Transferred" checkpoint
-	dealList, err := dealsDB.ByCheckpoint(ctx, dealcheckpoints.Transferred.String())
+	dealListTransferred, err := dealsDB.ByCheckpoint(ctx, dealcheckpoints.Transferred.String())
 
 	if err != nil {
 		return nil, err
-	}
-
-	checkpointsStatus.Transferred = CheckpointState{
-		Deals:          int64(len(dealList)),
-		CumulativeSize: GetCumulativePieceSize(dealList),
 	}
 
 	// For "Published" checkpoint
-	dealList, err = dealsDB.ByCheckpoint(ctx, dealcheckpoints.Published.String())
+	dealListPublished, err := dealsDB.ByCheckpoint(ctx, dealcheckpoints.Published.String())
 
 	if err != nil {
 		return nil, err
 	}
 
-	checkpointsStatus.Published = CheckpointState{
-		Deals:          int64(len(dealList)),
-		CumulativeSize: GetCumulativePieceSize(dealList),
-	}
-
-	return checkpointsStatus, nil
+	return &Status{
+		Accepted: acceptedCheckpointState,
+		Transferred: CheckpointState{
+			Deals:          int64(len(dealListTransferred)),
+			CumulativeSize: GetCumulativeSizeFromDealList(dealListTransferred),
+		},
+		Published: CheckpointState{
+			Deals:          int64(len(dealListPublished)),
+			CumulativeSize: GetCumulativeSizeFromDealList(dealListPublished),
+		},
+	}, nil
 }
 
-// GetCumulativePieceSize Sum the PieceSize for each deal in a provided list
-func GetCumulativePieceSize(deals []*types.ProviderDealState) abi.PaddedPieceSize {
+// GetCumulativeSizeFromDealList Sum the PieceSize for each deal in a provided list
+func GetCumulativeSizeFromDealList(deals []*types.ProviderDealState) abi.PaddedPieceSize {
 	var cumulativePieceSize abi.PaddedPieceSize
 
 	for _, deal := range deals {

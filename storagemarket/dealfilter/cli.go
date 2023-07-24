@@ -15,7 +15,7 @@ import (
 )
 
 const agent = "boost"
-const jsonVersion = "2.2.1"
+const jsonVersion = "2.2.0"
 
 type StorageDealFilter func(ctx context.Context, deal DealFilterParams) (bool, string, error)
 type RetrievalDealFilter func(ctx context.Context, deal retrievalmarket.ProviderDealState) (bool, string, error)
