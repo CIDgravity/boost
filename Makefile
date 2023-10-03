@@ -93,8 +93,10 @@ boostx: $(BUILD_DEPS)
 BINS+=boostx
 
 boost: $(BUILD_DEPS)
-	rm -f boost
+	rm -f boost boostd boostx
 	$(GOCC) build $(GOFLAGS) -o boost ./cmd/boost
+	$(GOCC) build $(GOFLAGS) -o boostx ./cmd/boostx
+	$(GOCC) build $(GOFLAGS) -o boostd ./cmd/boostd
 .PHONY: boost
 BINS+=boost
 
