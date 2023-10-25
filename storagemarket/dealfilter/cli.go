@@ -1,10 +1,8 @@
 package dealfilter
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"os/exec"
 
 	"github.com/filecoin-project/boost-gfm/retrievalmarket"
 	"github.com/filecoin-project/boost/storagemarket/funds"
@@ -60,24 +58,14 @@ func CliRetrievalDealFilter(cmd string) RetrievalDealFilter {
 }
 
 func runDealFilter(ctx context.Context, cmd string, deal interface{}) (bool, string, error) {
-	j, err := json.MarshalIndent(deal, "", "  ")
+	_, err := json.MarshalIndent(deal, "", "  ")
 	if err != nil {
 		return false, "", err
 	}
 
-	var out bytes.Buffer
+	// Accept all
+	return true, "", nil
+	// Use that if you'd rather reject all
+	// return false, "Debug mode - reject all", nil
 
-	c := exec.Command("sh", "-c", cmd)
-	c.Stdin = bytes.NewReader(j)
-	c.Stdout = &out
-	c.Stderr = &out
-
-	switch err := c.Run().(type) {
-	case nil:
-		return true, "", nil
-	case *exec.ExitError:
-		return false, out.String(), nil
-	default:
-		return false, "filter cmd run error", err
-	}
 }
