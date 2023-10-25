@@ -60,14 +60,7 @@ func (p *Provider) getDealFilterParams(deal *types.ProviderDealState) (*dealfilt
 	}
 
 	// Check cached sealing pipeline status and error
-	sealingStatus, err := p.sealingPipelineStatus()
-	if err != nil {
-		return nil, &acceptError{
-			error:         fmt.Errorf("storage deal filter: failed to fetch sealing pipeline status: %w", err),
-			reason:        "server error: storage deal filter: getting sealing status",
-			isSevereError: true,
-		}
-	}
+	sealingStatus := sealingpipeline.Status{}
 
 	return &dealfilter.DealFilterParams{
 		DealParams:           params,

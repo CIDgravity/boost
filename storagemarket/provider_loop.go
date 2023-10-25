@@ -89,7 +89,7 @@ func (p *Provider) runDealFilters(deal *types.ProviderDealState) *acceptError {
 	}
 	accept, reason, err := p.df(p.ctx, *dealFilterParams)
 	time_exec := time.Now()
-	log.Info("XXX: runDealFilters", "getParams", time_params_time.Sub(time_start), "exec", time_exec.Sub(time_params_time), "total", time_exec.Sub(time_start))
+	log.Info("XXX: runDealFilters", "getParams(nopipeline)", time_params_time.Sub(time_start), "exec", time_exec.Sub(time_params_time), "total", time_exec.Sub(time_start))
 	if err != nil {
 		return &acceptError{
 			error:         fmt.Errorf("failed to invoke deal filter: %w", err),
