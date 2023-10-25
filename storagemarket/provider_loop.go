@@ -80,12 +80,16 @@ type acceptError struct {
 // Then it runs the external "cmd" filter. Thus, runDealFilters is not optional of any type of deal
 func (p *Provider) runDealFilters(deal *types.ProviderDealState) *acceptError {
 
+	time_start := time.Now()
 	// run custom storage deal filter decision logic
 	dealFilterParams, aerr := p.getDealFilterParams(deal)
+	time_params_time := time.Now()
 	if aerr != nil {
 		return aerr
 	}
 	accept, reason, err := p.df(p.ctx, *dealFilterParams)
+	time_exec := time.Now()
+	log.Info("XXX: runDealFilters", "getParams", time_params_time.Sub(time_start), "exec", time_exec.Sub(time_params_time), "total", time_exec.Sub(time_start))
 	if err != nil {
 		return &acceptError{
 			error:         fmt.Errorf("failed to invoke deal filter: %w", err),
