@@ -2,16 +2,19 @@ package main
 
 import (
 	"io"
-	"os"
-
 	llog "log"
+	"os"
 
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/urfave/cli/v2"
 
 	"github.com/filecoin-project/boost/build"
 	"github.com/filecoin-project/boost/cmd"
-	"github.com/filecoin-project/boostd-data/shared/cliutil"
+	"github.com/filecoin-project/boost/extern/boostd-data/shared/cliutil"
+)
+
+const (
+	FlagBoostRepo = "boost-repo"
 )
 
 var log = logging.Logger("boostx")
@@ -27,6 +30,12 @@ func main() {
 		EnableBashCompletion: true,
 		Version:              build.UserVersion(),
 		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    FlagBoostRepo,
+				EnvVars: []string{"BOOST_PATH"},
+				Usage:   "boostd repo path",
+				Value:   "~/.boost",
+			},
 			cliutil.FlagVeryVerbose,
 			cmd.FlagRepo,
 		},
@@ -38,6 +47,7 @@ func main() {
 			marketWithdrawCmd,
 			statsCmd,
 			sectorCmd,
+			boostdCmd,
 		},
 	}
 	app.Setup()

@@ -15,11 +15,11 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/filecoin-project/boost/api"
 	cliutil "github.com/filecoin-project/boost/cli/util"
+	scliutil "github.com/filecoin-project/boost/extern/boostd-data/shared/cliutil"
 	"github.com/filecoin-project/boost/node/config"
 	"github.com/filecoin-project/boost/node/impl/backupmgr"
 	"github.com/filecoin-project/boost/node/repo"
 	"github.com/filecoin-project/boost/util"
-	scliutil "github.com/filecoin-project/boostd-data/shared/cliutil"
 	"github.com/filecoin-project/go-address"
 	lapi "github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/client"
@@ -110,6 +110,24 @@ var initCmd = &cli.Command{
 		}
 		if err != nil {
 			return fmt.Errorf("setting config: %w", err)
+		}
+
+		// Add comments to config
+		c, err := lr.Config()
+		if err != nil {
+			return fmt.Errorf("getting config: %w", err)
+		}
+		curCfg, ok := c.(*config.Boost)
+		if !ok {
+			return fmt.Errorf("parsing config from boost repo")
+		}
+		newCfg, err := config.ConfigUpdate(curCfg, config.DefaultBoost(), true, false)
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(path.Join(lr.Path(), "config.toml"), newCfg, 0644)
+		if err != nil {
+			return fmt.Errorf("writing config file %s: %w", string(newCfg), err)
 		}
 
 		// Add the miner address to the metadata datastore
@@ -482,24 +500,19 @@ func migrateMarketsConfig(cctx *cli.Context, mktsRepo lotus_repo.LockedRepo, boo
 		}
 		rcfg.Common.Backup = mktsCfg.Common.Backup
 		rcfg.Common.Libp2p = mktsCfg.Common.Libp2p
-		rcfg.Storage = config.StorageConfig{ParallelFetchLimit: mktsCfg.Storage.ParallelFetchLimit}
+		rcfg.Storage.ParallelFetchLimit = mktsCfg.Storage.ParallelFetchLimit
 		setBoostDealMakingCfg(&rcfg.Dealmaking, mktsCfg)
 		rcfg.LotusDealmaking = mktsCfg.Dealmaking
-		rcfg.LotusFees = config.FeeConfig{
-			MaxPublishDealsFee:     mktsCfg.Fees.MaxPublishDealsFee,
-			MaxMarketBalanceAddFee: mktsCfg.Fees.MaxMarketBalanceAddFee,
-		}
+		rcfg.LotusFees.MaxMarketBalanceAddFee = mktsCfg.Fees.MaxMarketBalanceAddFee
+		rcfg.LotusFees.MaxPublishDealsFee = mktsCfg.Fees.MaxPublishDealsFee
 		rcfg.DAGStore = mktsCfg.DAGStore
 		// Clear the DAG store root dir config, because the DAG store is no longer configurable in Boost
 		// (it is always at <repo path>/dagstore
 		rcfg.DAGStore.RootDir = ""
-		rcfg.IndexProvider = config.IndexProviderConfig{
-			Enable:               mktsCfg.IndexProvider.Enable,
-			EntriesCacheCapacity: mktsCfg.IndexProvider.EntriesCacheCapacity,
-			EntriesChunkSize:     mktsCfg.IndexProvider.EntriesChunkSize,
-			TopicName:            mktsCfg.IndexProvider.TopicName,
-			PurgeCacheOnStart:    mktsCfg.IndexProvider.PurgeCacheOnStart,
-		}
+		rcfg.IndexProvider.EntriesCacheCapacity = mktsCfg.IndexProvider.EntriesCacheCapacity
+		rcfg.IndexProvider.EntriesChunkSize = mktsCfg.IndexProvider.EntriesChunkSize
+		rcfg.IndexProvider.TopicName = mktsCfg.IndexProvider.TopicName
+		rcfg.IndexProvider.PurgeCacheOnStart = mktsCfg.IndexProvider.PurgeCacheOnStart
 		rcfg.IndexProvider.Enable = true // Enable index provider in Boost by default
 
 		if fromMonolith {

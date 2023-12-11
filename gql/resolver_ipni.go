@@ -5,7 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
 	"github.com/ipfs/go-cid"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
 	"github.com/multiformats/go-multicodec"
 )
@@ -62,38 +65,7 @@ func (r *resolver) IpniAdvertisement(ctx context.Context, args struct{ AdCid str
 		return nil, err
 	}
 
-	var contextId string
-	c, err := cid.Parse(ad.ContextID)
-	if err == nil {
-		contextId = c.String()
-	} else {
-		contextId = base64.StdEncoding.EncodeToString(ad.ContextID)
-	}
-
-	res := &adResolver{
-		ContextID:     contextId,
-		IsRemove:      ad.IsRm,
-		Metadata:      getMetadata(ad.Metadata),
-		PreviousEntry: ad.PreviousID.String(),
-		Provider:      ad.Provider,
-		Addresses:     ad.Addresses,
-	}
-
-	if ad.ExtendedProvider != nil {
-		extProvs := &extendedProvsResolver{
-			Override: ad.ExtendedProvider.Override,
-		}
-		for _, p := range ad.ExtendedProvider.Providers {
-			extProvs.Providers = append(extProvs.Providers, &extendedProvResolver{
-				ID:        p.ID,
-				Addresses: p.Addresses,
-				Metadata:  getMetadata(p.Metadata),
-			})
-		}
-		res.ExtendedProviders = extProvs
-	}
-
-	return res, nil
+	return resolveAd(ad), nil
 }
 
 func getMetadata(adMdBytes []byte) []*adMetadata {
@@ -179,6 +151,79 @@ func (r *resolver) IpniAdvertisementEntriesCount(ctx context.Context, args struc
 	}
 	var count int32
 	for _, err := it.Next(); err == nil; _, err = it.Next() {
+		count++
+	}
+
+	return count, nil
+}
+
+func (r *resolver) IpniLatestAdvertisement(ctx context.Context) (string, error) {
+	adCid, _, err := r.idxProv.GetLatestAdv(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return adCid.String(), nil
+}
+
+func resolveAd(ad *schema.Advertisement) *adResolver {
+	var contextId string
+	c, err := cid.Parse(ad.ContextID)
+	if err == nil {
+		contextId = c.String()
+	} else {
+		contextId = base64.StdEncoding.EncodeToString(ad.ContextID)
+	}
+
+	res := &adResolver{
+		ContextID:     contextId,
+		IsRemove:      ad.IsRm,
+		Metadata:      getMetadata(ad.Metadata),
+		PreviousEntry: ad.PreviousID.String(),
+		Provider:      ad.Provider,
+		Addresses:     ad.Addresses,
+	}
+
+	if ad.ExtendedProvider != nil {
+		extProvs := &extendedProvsResolver{
+			Override: ad.ExtendedProvider.Override,
+		}
+		for _, p := range ad.ExtendedProvider.Providers {
+			extProvs.Providers = append(extProvs.Providers, &extendedProvResolver{
+				ID:        p.ID,
+				Addresses: p.Addresses,
+				Metadata:  getMetadata(p.Metadata),
+			})
+		}
+		res.ExtendedProviders = extProvs
+	}
+	return res
+}
+
+func (r *resolver) IpniDistanceFromLatestAd(ctx context.Context, args struct {
+	LatestAdcid string
+	Adcid       string
+}) (int32, error) {
+	count := int32(0)
+	if args.Adcid == args.LatestAdcid {
+		return count, nil
+	}
+	latestAd, err := cid.Parse(args.LatestAdcid)
+	if err != nil {
+		return count, fmt.Errorf("parsing ad cid %s: %w", args.LatestAdcid, err)
+	}
+
+	ad, err := r.idxProv.GetAdv(ctx, latestAd)
+	if err != nil {
+		return count, err
+	}
+
+	for ad.PreviousID.String() != args.Adcid {
+		prevCid := ad.PreviousID.(cidlink.Link).Cid
+		ad, err = r.idxProv.GetAdv(ctx, prevCid)
+		if err != nil {
+			return count, err
+		}
 		count++
 	}
 
