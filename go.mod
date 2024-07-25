@@ -303,6 +303,7 @@ require (
 	github.com/filecoin-project/boost-graphsync v0.13.12
 	github.com/filecoin-project/boost/extern/boostd-data v0.0.0-20231124125934-3233c510357f
 	github.com/filecoin-project/go-data-segment v0.0.1
+	github.com/filecoin-project/go-fil-markets v1.28.3
 	github.com/filecoin-project/lotus v1.28.1
 	github.com/ipfs/boxo v0.20.0
 	github.com/ipfs/go-ds-leveldb v0.5.0
