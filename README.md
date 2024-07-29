@@ -1,4 +1,4 @@
-# Boost
+# Boost cidg
 
 Boost is a tool for Filecoin storage providers to manage data storage and retrievals on Filecoin.
 
