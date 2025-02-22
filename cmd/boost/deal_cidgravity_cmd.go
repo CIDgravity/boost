@@ -362,12 +362,12 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		})
 	}
 
-	// To work with CIDgravity, the min size must be set to 256B and max size must be set to {sectorSize}
-	if ask.MinPieceSize != 256 || ask.MaxPieceSize != abi.PaddedPieceSize(*sectorSize) {
+	// To work with CIDgravity, the min size must be set >= 256B and max size must be set to {sectorSize}
+	if ask.MinPieceSize > 256 || ask.MaxPieceSize != abi.PaddedPieceSize(*sectorSize) {
 		return cmd.PrintJson(dealCidGravityResponse{
 			Status:                    Unavailable,
 			Reason:                    "ERR_GET_ASK_SIZES_NOT_PROPERLY_SET",
-			Message:                   "get-ask accepting size must be min=256B and max=" + sectorSize.ShortString(),
+			Message:                   "get-ask accepting size must be min<=256B and max=" + sectorSize.ShortString(),
 			Multiaddresses:            addrInfo.Addrs,
 			PeerId:                    addrInfo.ID,
 			DealProtocolsSupported:    x,
