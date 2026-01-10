@@ -364,6 +364,7 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 			})
 		}
 
+		log.Debugw("retrieved encrypted label from CIDgravity", "encryptedLabel", encryptedLabel)
 		label = *encryptedLabel
 	}
 
@@ -473,7 +474,7 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		SkipIPNIAnnounce:   false,
 	}
 
-	log.Debugw("about to submit deal proposal", "uuid", dealUuid.String())
+	log.Debugw("about to submit deal proposal", "uuid", dealUuid.String(), "label", dealProposal.Proposal.Label)
 
 	streamSendProposal, err := n.Host.NewStream(ctx, addrInfo.ID, DealProtocolv120)
 
@@ -601,10 +602,6 @@ func getEncryptedLabel(pieceCID, storagePrice, cidgravityToken string) (*string,
 		}
 	}(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, xerrors.Errorf("invalid response from CIDgravity to get encrypted label")
-	}
-
 	body := new(bytes.Buffer)
 	_, err = body.ReadFrom(resp.Body)
 	if err != nil {
@@ -615,6 +612,12 @@ func getEncryptedLabel(pieceCID, storagePrice, cidgravityToken string) (*string,
 	err = json.Unmarshal(body.Bytes(), &response)
 	if err != nil {
 		return nil, xerrors.Errorf("error parsing response body: %w", err)
+	}
+
+	log.Debugw("got response from CIDgravity to get encrypted label", "response", response)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, xerrors.Errorf("error from CIDgravity: %s (code: %s)", response.Error.Message, response.Error.Code)
 	}
 
 	return &response.Result.EncodedLabel, nil
