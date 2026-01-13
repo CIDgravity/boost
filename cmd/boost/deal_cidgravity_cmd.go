@@ -2,11 +2,6 @@ package main
 
 import (
 	"strings"
-	"golang.org/x/xerrors"
-	"net/http"
-	"io"
-	"encoding/json"
-	"bytes"
 
 	bcli "github.com/filecoin-project/boost/cli"
 	clinode "github.com/filecoin-project/boost/cli/node"
@@ -26,12 +21,10 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const cidGravityEncryptLabelUrl = "https://service.cidgravity.com/private/v1/get-erc20-encoded-label"
-
 var dealCIDgravityFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:  "label",
-		Usage: "label to be specified in the proposal (default: root CID) will be ignored if erc20-deal is set to true",
+		Usage: "label to be specified in the proposal (default: root CID)",
 		Value: "",
 	},
 	&cli.StringFlag{
@@ -75,23 +68,13 @@ var dealCIDgravityFlags = []cli.Flag{
 	},
 	&cli.Int64Flag{
 		Name:  "storage-price",
-		Usage: "storage price in attoFIL per epoch per GiB (can be in USDFC/TiB/30d is flag --erc20-deal is true)",
+		Usage: "storage price in attoFIL per epoch per GiB",
 		Value: 1,
 	},
 	&cli.BoolFlag{
 		Name:  "verified",
 		Usage: "whether the deal funds should come from verified client data-cap",
 		Value: true,
-	},
-	&cli.BoolFlag{
-		Name:  "erc20-deal",
-		Usage: "whether the deal should be an ERC20 deal and price sent in USDFC (to use this, cidgravity-token is required)",
-		Value: false,
-	},
-	&cli.StringFlag{
-		Name:     "cidgravity-token",
-		Usage:    "your CIDgravity token to send API requests (required to use erc20-deal flag)",
-		Required: false,
 	},
 }
 
@@ -121,23 +104,6 @@ type dealCidGravityResponse struct {
 	DealProtocolsSupported protocol.ID `json:"dealProtocolsSupported"`
 }
 
-type cidGravityEncryptLabelPayload struct {
-	Currency	string `json:"currency"`
-	PieceCID	string `json:"pieceCID"`
-	Price		string `json:"price"`
-}
-
-type cidGravityEncryptLabelResponse struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
-
-	Result struct {
-		EncodedLabel string `json:"encodedLabel"`
-	} `json:"result"`
-}
-
 var dealCidGravityCmd = &cli.Command{
 	Name:   "cidgravity-deal",
 	Usage:  "Make an Keep Alive deal with Boost using CIDgravity proposal format (offline deal)",
@@ -150,15 +116,6 @@ var dealCidGravityCmd = &cli.Command{
 
 func dealCidGravityCmdAction(cctx *cli.Context) error {
 	ctx := bcli.ReqContext(cctx)
-
-	// check required param for ERC20
-	if cctx.Bool("erc20-deal") && cctx.String("cidgravity-token") == "" {
-		return cmd.PrintJson(dealCidGravityResponse{
-			Status:  InternalError,
-			Reason:  "ERR_INVALID_PARAMS",
-			Message: "cidgravity-token must be provided to send ERC20 deals",
-		})
-	}
 
 	n, err := clinode.Setup(cctx.String(cmd.FlagRepo.Name))
 	if err != nil {
@@ -342,31 +299,8 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		startEpoch = head + abi.ChainEpoch(5760) // head + 2 days
 	}
 
-	// If flag erc20-deal is set to true
-	// We need to encrypt the label with an API call to CIDgravity services
-	// and use this encrypted label in the proposal
-	// otherwise we take the label provided in the command line.
+	// Create a deal proposal to storage provider using deal protocol v1.2.0 format
 	label := cctx.String("label")
-
-	if cctx.Bool("erc20-deal") {
-		log.Debugw("about to send an API call to CIDgravity to get encrypted label")
-
-		storagePrice := abi.NewTokenAmount(cctx.Int64("storage-price")).String()
-		encryptedLabel, err := getEncryptedLabel(pieceCid.String(), storagePrice, cctx.String("cidgravity-token"))
-		if err != nil {
-			return cmd.PrintJson(dealCidGravityResponse{
-				Status:                 Unavailable,
-				Reason:                 "ERR_ENCRYPTED_LABEL",
-				Message:                "failed to get encrypted label: " + err.Error(),
-				Multiaddresses:         addrInfo.Addrs,
-				PeerId:                 addrInfo.ID,
-				DealProtocolsSupported: x,
-			})
-		}
-
-		log.Debugw("retrieved encrypted label from CIDgravity", "encryptedLabel", encryptedLabel)
-		label = *encryptedLabel
-	}
 
 	// Send a get ask request for the final check
 	log.Debugw("about to send a get ask request to", "address", maddr.String())
@@ -474,7 +408,7 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		SkipIPNIAnnounce:   false,
 	}
 
-	log.Debugw("about to submit deal proposal", "uuid", dealUuid.String(), "label", dealProposal.Proposal.Label)
+	log.Debugw("about to submit deal proposal", "uuid", dealUuid.String())
 
 	streamSendProposal, err := n.Host.NewStream(ctx, addrInfo.ID, DealProtocolv120)
 
@@ -563,62 +497,4 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		GetAskMaxPieceSize:        chain_types.SizeStr(chain_types.NewInt(uint64(ask.MaxPieceSize))),
 		GetAskSectorSize:          sectorSize.ShortString(),
 	})
-}
-
-func getEncryptedLabel(pieceCID, storagePrice, cidgravityToken string) (*string, error) {
-	data := cidGravityEncryptLabelPayload{
-		Currency: 	"usdfc",
-		PieceCID: 	pieceCID,
-		Price: 		storagePrice,
-	}
-
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return nil, xerrors.Errorf("error encoding payload: %w", err)
-	}
-
-	// creating http client
-	client := &http.Client{}
-
-	// creating request
-	req, err := http.NewRequest("POST", cidGravityEncryptLabelUrl, bytes.NewBuffer(payload))
-	if err != nil {
-		return nil, xerrors.Errorf("error creating request: %w", err)
-	}
-
-	// set authentication header
-	req.Header.Set("X-API-KEY", cidgravityToken)
-
-	// execute the request
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, xerrors.Errorf("error making request: %w", err)
-	}
-
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Errorf("error closing response body: %w", err)
-		}
-	}(resp.Body)
-
-	body := new(bytes.Buffer)
-	_, err = body.ReadFrom(resp.Body)
-	if err != nil {
-		return nil, xerrors.Errorf("error reading response body: %w", err)
-	}
-
-	response := cidGravityEncryptLabelResponse{}
-	err = json.Unmarshal(body.Bytes(), &response)
-	if err != nil {
-		return nil, xerrors.Errorf("error parsing response body: %w", err)
-	}
-
-	log.Debugw("got response from CIDgravity to get encrypted label", "response", response)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, xerrors.Errorf("error from CIDgravity: %s (code: %s)", response.Error.Message, response.Error.Code)
-	}
-
-	return &response.Result.EncodedLabel, nil
 }
