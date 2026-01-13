@@ -31,7 +31,7 @@ import (
 )
 
 const DealProtocolv120 = "/fil/storage/mk/1.2.0"
-const cidGravityEncryptLabelUrl = "https://http://staging-service.cidgravity.com/private/v1/get-erc20-encoded-label"
+const cidGravityEncryptLabelUrl = "https://staging-service.cidgravity.com/private/v1/get-erc20-encoded-label"
 
 type cidGravityEncryptLabelPayload struct {
 	Currency	string `json:"currency"`
