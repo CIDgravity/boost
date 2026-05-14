@@ -428,7 +428,9 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		})
 	}
 
-	defer streamSendProposal.Close()
+	defer func() {
+		_ = streamSendProposal.Close()
+	}()
 
 	var respDealResponse types.DealResponse
 	if err := doRpc(ctx, streamSendProposal, &dealParams, &respDealResponse); err != nil {
@@ -446,6 +448,8 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 			GetAskSectorSize:          sectorSize.ShortString(),
 		})
 	}
+
+	log.Debugw("received response from rpc:", "respDealResponse", respDealResponse)
 
 	// For CIDgravity miner-status-check the proposal will be rejected every time
 	if !respDealResponse.Accepted {
