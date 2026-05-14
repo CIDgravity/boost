@@ -487,11 +487,15 @@ func dealCidGravityCmdAction(cctx *cli.Context) error {
 		})
 	}
 
-	// In our case, this block will never be reached (because all proposals will be rejected)
+	// Reaching this block means the proposal was never analyzed by CIDgravity
+	// (either through the connector or the integrated Curio code).
+	//
+	// Because the proposal was incorrectly accepted, it is treated as a normal deal
+	// instead of being rejected, and therefore never passes back through the deal filter.
 	return cmd.PrintJson(dealCidGravityResponse{
-		Status:                    Unknown,
-		Reason:                    "SENT",
-		Message:                   "this case should normally never happend : unknown",
+		Status:                    Unavailable,
+		Reason:                    "ERR_CIDGRAVITY_CONNECTOR_MISCONFIGURED",
+		Message:                   "CIDgravity is disabled: deal acceptance occurred unexpectedly; the deal should have been rejected",
 		Multiaddresses:            addrInfo.Addrs,
 		PeerId:                    addrInfo.ID,
 		DealProtocolsSupported:    x,
